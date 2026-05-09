@@ -9,10 +9,12 @@ import {
   Settings,
   Ship,
   Menu,
-  X
+  X,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { signOut } from "next-auth/react";
 
 const menuItems = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -86,7 +88,8 @@ export default function AdminSidebar({ isOpen, setIsOpen, isCollapsed, setIsColl
             })}
           </nav>
 
-          <div className="p-3 border-t border-border">
+          <div className="p-3 border-t border-border space-y-2">
+            {/* 
             <Link
               href="/admin/settings"
               className={cn(
@@ -98,6 +101,20 @@ export default function AdminSidebar({ isOpen, setIsOpen, isCollapsed, setIsColl
               <Settings size={22} className="flex-none" />
               {!isCollapsed && <span className="animate-in fade-in slide-in-from-left-2 duration-300">Settings</span>}
             </Link>
+            */}
+            
+            <Button 
+              variant="ghost" 
+              className={cn(
+                "w-full rounded-xl font-bold text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 transition-all",
+                isCollapsed ? "justify-center" : "justify-start px-3"
+              )}
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              title={isCollapsed ? "Sign Out" : ""}
+            >
+              <LogOut size={22} className={cn(isCollapsed ? "" : "mr-3")} />
+              {!isCollapsed && <span>Sign Out</span>}
+            </Button>
           </div>
         </div>
       </aside>

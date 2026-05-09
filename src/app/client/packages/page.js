@@ -244,6 +244,16 @@ export default function MyPackages() {
                           </Badge>
                         </div>
                         <p className="text-sm text-muted mt-1 font-medium italic">{pkg.description}</p>
+                        
+                        {pkg.status === "NEEDS_REVIEW" && pkg.adminNotes && (
+                          <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                            <AlertCircle size={14} className="text-rose-600 mt-0.5 flex-none" />
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-rose-600">Rejection Note</p>
+                              <p className="text-xs font-bold text-rose-700 leading-tight">{pkg.adminNotes}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     

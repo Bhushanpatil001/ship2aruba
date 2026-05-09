@@ -42,7 +42,10 @@ export default function AllPackages() {
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewingPkg, setReviewingPkg] = useState(null);
+  const [adminNote, setAdminNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [loadingId, setLoadingId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [showIntakeModal, setShowIntakeModal] = useState(false);
   
   // Intake Form State
@@ -99,42 +102,72 @@ export default function AllPackages() {
   }, []);
 
   const handleReviewAction = async (id, status) => {
+    setLoadingId(id);
     setActionLoading(true);
     try {
       const res = await fetch("/api/packages", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status })
+        body: JSON.stringify({ id, status, adminNotes: adminNote })
       });
       if (res.ok) {
         setReviewingPkg(null);
+        setAdminNote("");
         fetchPackages();
       }
     } catch (err) {
       console.error("Failed to update package:", err);
     } finally {
       setActionLoading(false);
+      setLoadingId(null);
     }
   };
 
-  const handleShipmentAction = async (pkgId, status) => {
-    const shipment = shipments.find(s => s.packageIds.some(p => p._id === pkgId || p === pkgId));
-    if (!shipment) return;
+  const handleShipmentAction = async (pkgIds, status) => {
+    const idsToProcess = Array.isArray(pkgIds) ? pkgIds : [pkgIds];
+    
+    // Find all unique shipments for the selected packages
+    const shipmentIds = new Set();
+    idsToProcess.forEach(pid => {
+      const s = shipments.find(s => s.packageIds.some(p => (p._id || p) === pid));
+      if (s) shipmentIds.add(s._id);
+    });
+
+    if (shipmentIds.size === 0) return;
 
     setActionLoading(true);
+    setLoadingId(Array.isArray(pkgIds) ? 'bulk' : pkgIds);
+    
     try {
-      const res = await fetch("/api/shipments", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: shipment._id, status })
-      });
-      if (res.ok) {
-        await Promise.all([fetchShipments(), fetchPackages()]);
-      }
+      await Promise.all(Array.from(shipmentIds).map(sid => 
+        fetch("/api/shipments", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: sid, status })
+        })
+      ));
+      
+      setSelectedIds([]);
+      await Promise.all([fetchShipments(), fetchPackages()]);
     } catch (err) {
-      console.error("Failed to update shipment:", err);
+      console.error("Failed to update shipments:", err);
     } finally {
       setActionLoading(false);
+      setLoadingId(null);
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === packages.filter(p => p.status === "SHIP_REQUESTED").length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(packages.filter(p => p.status === "SHIP_REQUESTED").map(p => p._id));
     }
   };
 
@@ -335,14 +368,36 @@ export default function AllPackages() {
                   View Invoice
                 </Button>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted uppercase tracking-widest flex items-center gap-2">
+                  <FileText size={14} />
+                  Rejection/Review Note (Optional)
+                </label>
+                <textarea
+                  value={adminNote}
+                  onChange={(e) => setAdminNote(e.target.value)}
+                  placeholder="Explain why this invoice needs review or was rejected..."
+                  className="w-full rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm focus:border-primary focus:outline-none transition-all min-h-[100px] resize-none"
+                />
+              </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <Button 
-                  disabled={actionLoading}
+                  disabled={actionLoading || !!adminNote.trim()}
                   onClick={() => handleReviewAction(reviewingPkg._id, "INVOICE_APPROVED")}
-                  className="h-14 rounded-2xl font-bold text-base bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                  className={cn(
+                    "h-14 rounded-2xl font-bold text-base transition-all active:scale-95",
+                    !!adminNote.trim() 
+                      ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50" 
+                      : "bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-500/20"
+                  )}
                 >
-                  {actionLoading ? <Loader2 className="animate-spin mr-2" size={20} /> : <><CheckCircle2 className="mr-2" size={20} /> Approve</>}
+                  {actionLoading && loadingId === reviewingPkg._id ? (
+                    <Loader2 className="animate-spin mr-2" size={20} />
+                  ) : (
+                    <><CheckCircle2 className="mr-2" size={20} /> Approve</>
+                  )}
                 </Button>
                 <Button 
                   disabled={actionLoading}
@@ -364,7 +419,15 @@ export default function AllPackages() {
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow className="hover:bg-transparent border-border">
-                <TableHead className="font-bold py-5 px-8 text-foreground uppercase text-[10px] tracking-widest">Tracking Info</TableHead>
+                <TableHead className="w-12 px-8">
+                  <input 
+                    type="checkbox" 
+                    className="h-4 w-4 rounded border-border"
+                    checked={packages.length > 0 && selectedIds.length === packages.filter(p => p.status === "SHIP_REQUESTED").length}
+                    onChange={toggleSelectAll}
+                  />
+                </TableHead>
+                <TableHead className="font-bold py-5 text-foreground uppercase text-[10px] tracking-widest">Tracking Info</TableHead>
                 <TableHead className="font-bold py-5 text-foreground uppercase text-[10px] tracking-widest">Client & Suite</TableHead>
                 <TableHead className="font-bold py-5 text-center text-foreground uppercase text-[10px] tracking-widest">Status</TableHead>
                 <TableHead className="text-right font-bold py-5 px-8 text-foreground uppercase text-[10px] tracking-widest">Logistics Action</TableHead>
@@ -382,8 +445,21 @@ export default function AllPackages() {
                 </TableRow>
               ) : packages.length > 0 ? (
                 packages.map((pkg) => (
-                  <TableRow key={pkg._id} className="group transition-all border-border hover:bg-muted/5">
-                    <TableCell className="px-8 py-6">
+                  <TableRow key={pkg._id} className={cn(
+                    "group transition-all border-border hover:bg-muted/5",
+                    selectedIds.includes(pkg._id) && "bg-primary/5"
+                  )}>
+                    <TableCell className="px-8">
+                      {pkg.status === "SHIP_REQUESTED" && (
+                        <input 
+                          type="checkbox" 
+                          className="h-4 w-4 rounded border-border"
+                          checked={selectedIds.includes(pkg._id)}
+                          onChange={() => toggleSelect(pkg._id)}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell className="py-6">
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-xl bg-muted/10 flex items-center justify-center text-muted group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                           <PackageIcon size={20} />
@@ -425,7 +501,7 @@ export default function AllPackages() {
                           onClick={() => handleShipmentAction(pkg._id, "SHIPPED")}
                           disabled={actionLoading}
                         >
-                          {actionLoading ? <Loader2 className="animate-spin" size={16} /> : <><Truck className="mr-2" size={16} /> Dispatch Group</>}
+                          {actionLoading && loadingId === pkg._id ? <Loader2 className="animate-spin" size={16} /> : <><Truck className="mr-2" size={16} /> Dispatch Group</>}
                         </Button>
                       )}
 
@@ -452,6 +528,34 @@ export default function AllPackages() {
           </Table>
         </div>
       </Card>
+      {/* Floating Bulk Action Bar */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-[90] animate-in slide-in-from-bottom-8 duration-500">
+          <div className="bg-card/90 backdrop-blur-xl border border-primary/20 rounded-[2rem] p-4 shadow-2xl flex items-center justify-between gap-4 ring-1 ring-white/10">
+            <div className="flex items-center gap-4 pl-4">
+              <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
+                <Truck size={24} />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-foreground">{selectedIds.length} Packages Ready</p>
+                <p className="text-xs text-muted font-medium uppercase tracking-widest">Selected for Dispatch</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => setSelectedIds([])} className="rounded-xl font-bold">Clear</Button>
+              <Button 
+                onClick={() => handleShipmentAction(selectedIds, "SHIPPED")}
+                disabled={actionLoading}
+                className="rounded-2xl px-10 h-14 font-black shadow-2xl shadow-indigo-600/30 bg-indigo-600 hover:bg-indigo-700"
+              >
+                {actionLoading ? <Loader2 className="animate-spin mr-2" /> : <Truck className="mr-2" size={20} />}
+                Dispatch All
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

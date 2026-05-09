@@ -3,8 +3,7 @@ import connectDB from "@/lib/db";
 import Package from "@/models/Package";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
-import fs from "fs";
-import path from "path";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 export async function POST(req) {
   try {
@@ -32,31 +31,29 @@ export async function POST(req) {
       return NextResponse.json({ error: "Package not found or access denied" }, { status: 404 });
     }
 
-    // Process file
+    // Process file with Cloudinary
     const buffer = Buffer.from(await file.arrayBuffer());
-    const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "invoices");
     
-    // Ensure directory exists
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    let cloudinaryResult;
+    try {
+      cloudinaryResult = await uploadToCloudinary(buffer, "ship2aruba/invoices");
+    } catch (uploadError) {
+      console.error("Cloudinary Upload Failed:", uploadError);
+      return NextResponse.json({ error: "Failed to upload file to storage" }, { status: 500 });
     }
 
-    const filePath = path.join(uploadDir, fileName);
-    fs.writeFileSync(filePath, buffer);
-
-    const publicPath = `/uploads/invoices/${fileName}`;
+    const secureUrl = cloudinaryResult.secure_url;
 
     // Update package status and attach invoice
     pkg.status = "PENDING_INVOICE_REVIEW";
-    pkg.invoiceUrl = publicPath;
+    pkg.invoiceUrl = secureUrl;
     pkg.updatedAt = new Date();
     await pkg.save();
 
     return NextResponse.json({ 
       success: true, 
-      message: "Invoice uploaded and package status updated",
-      invoiceUrl: publicPath
+      message: "Invoice uploaded successfully to cloud storage",
+      invoiceUrl: secureUrl
     });
   } catch (error) {
     console.error("Client Upload API Error:", error);
