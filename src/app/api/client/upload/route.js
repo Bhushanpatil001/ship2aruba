@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import Package from "@/models/Package";
+import StatusHistory from "@/models/StatusHistory";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { uploadToCloudinary } from "@/lib/cloudinary";
@@ -30,6 +31,27 @@ export async function POST(req) {
     if (!pkg) {
       return NextResponse.json({ error: "Package not found or access denied" }, { status: 404 });
     }
+
+    // File Validation
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+
+    if (file.size > maxSize) {
+      return NextResponse.json({ error: "File size exceeds 5MB limit" }, { status: 400 });
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json({ error: "Invalid file type. Only PDF, JPG, and PNG are allowed." }, { status: 400 });
+    }
+
+    // Record Status History before change
+    await StatusHistory.create({
+      packageId: pkg._id,
+      oldStatus: pkg.status,
+      newStatus: "PENDING_INVOICE_REVIEW",
+      changedBy: session.user.id,
+      note: "Client uploaded invoice"
+    });
 
     // Process file with Cloudinary
     const buffer = Buffer.from(await file.arrayBuffer());

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import Shipment from "@/models/Shipment";
 import Package from "@/models/Package";
+import StatusHistory from "@/models/StatusHistory";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]/route";
 
@@ -102,6 +103,19 @@ export async function PATCH(req) {
 
     if (status === "SHIPPED") {
       // Update all associated packages to SHIPPED
+      const packages = await Package.find({ _id: { $in: updatedShipment.packageIds } });
+      
+      for (const pkg of packages) {
+        if (pkg.status !== "SHIPPED") {
+          await StatusHistory.create({
+            packageId: pkg._id,
+            oldStatus: pkg.status,
+            newStatus: "SHIPPED",
+            changedBy: session.user.id,
+          });
+        }
+      }
+
       await Package.updateMany(
         { _id: { $in: updatedShipment.packageIds } },
         { status: "SHIPPED" }

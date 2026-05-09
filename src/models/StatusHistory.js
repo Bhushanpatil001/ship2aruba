@@ -6,11 +6,11 @@ const StatusHistorySchema = new mongoose.Schema({
     ref: 'Package',
     required: true,
   },
-  fromStatus: {
+  oldStatus: {
     type: String,
     required: true,
   },
-  toStatus: {
+  newStatus: {
     type: String,
     required: true,
   },
@@ -22,6 +22,9 @@ const StatusHistorySchema = new mongoose.Schema({
   timestamp: {
     type: Date,
     default: Date.now,
+  },
+  note: {
+    type: String, // For rejection notes or admin comments
   }
 });
 
