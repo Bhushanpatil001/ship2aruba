@@ -45,7 +45,6 @@ export default function AllPackages() {
   const [adminNote, setAdminNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [loadingId, setLoadingId] = useState(null);
-  const [selectedIds, setSelectedIds] = useState([]);
   const [showIntakeModal, setShowIntakeModal] = useState(false);
   
   // Intake Form State
@@ -123,58 +122,42 @@ export default function AllPackages() {
     }
   };
 
-  const handleShipmentAction = async (pkgIds, status) => {
-    const idsToProcess = Array.isArray(pkgIds) ? pkgIds : [pkgIds];
-    
-    // Find all unique shipments for the selected packages
-    const shipmentIds = new Set();
-    idsToProcess.forEach(pid => {
-      const s = shipments.find(s => s.packageIds.some(p => (p._id || p) === pid));
-      if (s) shipmentIds.add(s._id);
-    });
-
-    if (shipmentIds.size === 0) return;
+  const handleShipmentAction = async (pkgId, status) => {
+    const shipment = shipments.find(s => s.packageIds.some(p => (p._id || p) === pkgId));
+    if (!shipment) return;
 
     setActionLoading(true);
-    setLoadingId(Array.isArray(pkgIds) ? 'bulk' : pkgIds);
+    setLoadingId(pkgId);
     
     try {
-      await Promise.all(Array.from(shipmentIds).map(sid => 
-        fetch("/api/shipments", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: sid, status })
-        })
-      ));
+      const res = await fetch("/api/shipments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: shipment._id, status })
+      });
       
-      setSelectedIds([]);
-      await Promise.all([fetchShipments(), fetchPackages()]);
+      if (res.ok) {
+        await Promise.all([fetchShipments(), fetchPackages()]);
+      }
     } catch (err) {
-      console.error("Failed to update shipments:", err);
+      console.error("Failed to update shipment:", err);
     } finally {
       setActionLoading(false);
       setLoadingId(null);
     }
   };
 
-  const toggleSelect = (id) => {
-    setSelectedIds(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.length === packages.filter(p => p.status === "SHIP_REQUESTED").length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(packages.filter(p => p.status === "SHIP_REQUESTED").map(p => p._id));
-    }
-  };
-
   const handleIntakeSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.clientId) return setIntakeError("Please select a client");
     
+    // Form Validation
+    if (!formData.trackingNumber.trim()) return setIntakeError("Tracking number is required");
+    if (!formData.clientId) return setIntakeError("Please select a client to assign this package");
+    if (!formData.description.trim()) return setIntakeError("Contents description is required for customs");
+    if (!formData.weight || formData.weight <= 0) return setIntakeError("Please enter a valid weight");
+    if (!formData.width || !formData.height || !formData.length) return setIntakeError("All dimensions are required");
+    
+    setIntakeError("");
     setIntakeLoading(true);
     try {
       const res = await fetch("/api/packages", {
@@ -269,7 +252,7 @@ export default function AllPackages() {
                       onChange={(e) => setFormData({...formData, trackingNumber: e.target.value})}
                       required
                       placeholder="e.g. 1Z999..."
-                      className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:border-primary focus:outline-none transition-all font-mono"
+                      className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all font-mono"
                     />
                   </div>
                   <div className="space-y-2">
@@ -279,7 +262,7 @@ export default function AllPackages() {
                       value={formData.clientId}
                       onChange={(e) => setFormData({...formData, clientId: e.target.value})}
                       required
-                      className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:border-primary focus:outline-none transition-all font-bold"
+                      className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all font-bold"
                     >
                       <option value="">Select client...</option>
                       {clients.map(c => <option key={c._id} value={c._id}>{c.name} ({c.suiteNumber})</option>)}
@@ -293,7 +276,7 @@ export default function AllPackages() {
                       onChange={(e) => setFormData({...formData, description: e.target.value})}
                       required
                       rows={2}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none transition-all"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -419,15 +402,7 @@ export default function AllPackages() {
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow className="hover:bg-transparent border-border">
-                <TableHead className="w-12 px-8">
-                  <input 
-                    type="checkbox" 
-                    className="h-4 w-4 rounded border-border"
-                    checked={packages.length > 0 && selectedIds.length === packages.filter(p => p.status === "SHIP_REQUESTED").length}
-                    onChange={toggleSelectAll}
-                  />
-                </TableHead>
-                <TableHead className="font-bold py-5 text-foreground uppercase text-[10px] tracking-widest">Tracking Info</TableHead>
+                <TableHead className="font-bold py-5 px-8 text-foreground uppercase text-[10px] tracking-widest">Tracking Info</TableHead>
                 <TableHead className="font-bold py-5 text-foreground uppercase text-[10px] tracking-widest">Client & Suite</TableHead>
                 <TableHead className="font-bold py-5 text-center text-foreground uppercase text-[10px] tracking-widest">Status</TableHead>
                 <TableHead className="text-right font-bold py-5 px-8 text-foreground uppercase text-[10px] tracking-widest">Logistics Action</TableHead>
@@ -445,21 +420,8 @@ export default function AllPackages() {
                 </TableRow>
               ) : packages.length > 0 ? (
                 packages.map((pkg) => (
-                  <TableRow key={pkg._id} className={cn(
-                    "group transition-all border-border hover:bg-muted/5",
-                    selectedIds.includes(pkg._id) && "bg-primary/5"
-                  )}>
-                    <TableCell className="px-8">
-                      {pkg.status === "SHIP_REQUESTED" && (
-                        <input 
-                          type="checkbox" 
-                          className="h-4 w-4 rounded border-border"
-                          checked={selectedIds.includes(pkg._id)}
-                          onChange={() => toggleSelect(pkg._id)}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell className="py-6">
+                  <TableRow key={pkg._id} className="group transition-all border-border hover:bg-muted/5">
+                    <TableCell className="px-8 py-6">
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-xl bg-muted/10 flex items-center justify-center text-muted group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                           <PackageIcon size={20} />
@@ -528,34 +490,6 @@ export default function AllPackages() {
           </Table>
         </div>
       </Card>
-      {/* Floating Bulk Action Bar */}
-      {selectedIds.length > 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-[90] animate-in slide-in-from-bottom-8 duration-500">
-          <div className="bg-card/90 backdrop-blur-xl border border-primary/20 rounded-[2rem] p-4 shadow-2xl flex items-center justify-between gap-4 ring-1 ring-white/10">
-            <div className="flex items-center gap-4 pl-4">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20">
-                <Truck size={24} />
-              </div>
-              <div>
-                <p className="text-lg font-bold text-foreground">{selectedIds.length} Packages Ready</p>
-                <p className="text-xs text-muted font-medium uppercase tracking-widest">Selected for Dispatch</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setSelectedIds([])} className="rounded-xl font-bold">Clear</Button>
-              <Button 
-                onClick={() => handleShipmentAction(selectedIds, "SHIPPED")}
-                disabled={actionLoading}
-                className="rounded-2xl px-10 h-14 font-black shadow-2xl shadow-indigo-600/30 bg-indigo-600 hover:bg-indigo-700"
-              >
-                {actionLoading ? <Loader2 className="animate-spin mr-2" /> : <Truck className="mr-2" size={20} />}
-                Dispatch All
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
