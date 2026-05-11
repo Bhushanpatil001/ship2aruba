@@ -33,6 +33,7 @@ export default function ClientLayoutShell({ children, session }) {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground transition-all duration-300">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       {/* Sidebar Overlay */}
       {sidebarOpen && (
         <div 
@@ -129,7 +130,7 @@ export default function ClientLayoutShell({ children, session }) {
         isCollapsed ? "lg:pl-20" : "lg:pl-64"
       )}>
         <AdminHeader setSidebarOpen={setSidebarOpen} role="CLIENT" />
-        <main className="flex-1 p-4 lg:p-10">
+        <main id="main-content" className="flex-1 p-4 lg:p-10 outline-none" tabIndex="-1">
           <div className="mx-auto max-w-6xl">
             {children}
           </div>

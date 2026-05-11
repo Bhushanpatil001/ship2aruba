@@ -16,6 +16,7 @@ export default function AdminLayoutShell({ children }) {
 
   return (
     <div className="flex min-h-screen bg-background">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <AdminSidebar 
         isOpen={sidebarOpen} 
         setIsOpen={setSidebarOpen} 
@@ -28,7 +29,7 @@ export default function AdminLayoutShell({ children }) {
         isCollapsed ? "lg:pl-20" : "lg:pl-64"
       )}>
         <AdminHeader setSidebarOpen={setSidebarOpen} />
-        <main className="flex-1 p-4 lg:p-8">
+        <main id="main-content" className="flex-1 p-4 lg:p-8 outline-none" tabIndex="-1">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>

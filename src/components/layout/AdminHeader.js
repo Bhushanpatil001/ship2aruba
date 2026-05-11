@@ -25,6 +25,7 @@ export default function DashboardHeader({ setSidebarOpen, role = "ADMIN" }) {
           size="icon" 
           onClick={() => setSidebarOpen(true)}
           className="lg:hidden text-muted hover:text-foreground"
+          aria-label="Open sidebar menu"
         >
           <Menu size={24} />
         </Button>
@@ -45,6 +46,9 @@ export default function DashboardHeader({ setSidebarOpen, role = "ADMIN" }) {
           <button 
             onClick={() => setProfileOpen(!profileOpen)}
             className="flex items-center gap-3 pl-2 group cursor-pointer focus:outline-none"
+            aria-label="User profile menu"
+            aria-expanded={profileOpen}
+            aria-haspopup="true"
           >
             <div className="hidden text-right lg:block">
               <p className="text-sm font-bold text-foreground leading-none">{session?.user?.name || "User"}</p>

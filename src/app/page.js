@@ -24,13 +24,13 @@ export default function Home() {
 
       <main className="flex-1">
         {/* Hero Section: High Impact */}
-        <section className="relative py-24 md:py-40 px-6 overflow-hidden">
+        <section className="relative pt-12 pb-24 md:pt-20 md:pb-40 px-6 overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full pointer-events-none opacity-50">
             <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] animate-pulse"></div>
             <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-indigo-500/20 rounded-full blur-[120px] animate-pulse delay-1000"></div>
           </div>
 
-          <div className="max-w-6xl mx-auto text-center space-y-12 relative z-10">
+          <div className="max-w-6xl mx-auto text-center space-y-8 relative z-10">
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-6 py-2.5 text-xs font-black uppercase tracking-widest text-primary ring-1 ring-inset ring-primary/20 animate-in fade-in slide-in-from-top-4 duration-1000">
               <Zap size={14} className="fill-primary" />
               Direct US to Aruba Forwarding

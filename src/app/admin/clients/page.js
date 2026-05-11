@@ -11,6 +11,14 @@ export default function ClientsPage() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "client123" // Default password for ease
+  });
 
   const fetchClients = async () => {
     try {
@@ -24,13 +32,35 @@ export default function ClientsPage() {
     }
   };
 
+  const handleAddClient = async (e) => {
+    e.preventDefault();
+    setAddLoading(true);
+    setError("");
+    
+    try {
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setClients([data.client, ...clients]);
+        setShowAddModal(false);
+        setFormData({ name: "", email: "", password: "client123" });
+      } else {
+        setError(data.error || "Failed to add client");
+      }
+    } catch (err) {
+      setError("An unexpected error occurred");
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      await fetchClients();
-    };
-    load();
-    return () => { active = false; };
+    fetchClients();
   }, []);
 
   const filteredClients = clients.filter(c => 
@@ -41,6 +71,72 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-8">
+      {/* Add Client Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/60 backdrop-blur-md animate-in fade-in duration-300">
+          <Card className="w-full max-w-md shadow-2xl border-border bg-card animate-in zoom-in-95 duration-300">
+            <CardHeader>
+              <CardTitle>Register New Client</CardTitle>
+              <CardDescription>Manually add a client and assign a US suite number.</CardDescription>
+            </CardHeader>
+            <form onSubmit={handleAddClient}>
+              <CardContent className="space-y-4">
+                {error && (
+                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 text-sm font-bold">
+                    {error}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Full Name</label>
+                  <input 
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:border-primary focus:outline-none transition-all"
+                    placeholder="e.g. John Doe"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Email Address</label>
+                  <input 
+                    required
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:border-primary focus:outline-none transition-all"
+                    placeholder="john@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Suite Number (Optional)</label>
+                  <input 
+                    value={formData.suiteNumber}
+                    onChange={(e) => setFormData({...formData, suiteNumber: e.target.value})}
+                    className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:border-primary focus:outline-none transition-all font-mono"
+                    placeholder="e.g. S2A-1006 (Auto-generated if empty)"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Default Password</label>
+                  <input 
+                    required
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:border-primary focus:outline-none transition-all font-mono"
+                  />
+                </div>
+              </CardContent>
+              <div className="p-6 bg-muted/30 border-t border-border flex justify-end gap-3">
+                <Button variant="ghost" type="button" onClick={() => setShowAddModal(false)} disabled={addLoading}>Cancel</Button>
+                <Button type="submit" disabled={addLoading} className="rounded-xl px-8 shadow-lg shadow-primary/20">
+                  {addLoading ? <Loader2 className="animate-spin" size={20} /> : "Register Client"}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Registered Clients</h1>
@@ -56,7 +152,7 @@ export default function ClientsPage() {
               className="h-11 w-full sm:w-64 rounded-xl border border-border bg-card pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
             />
           </div>
-          <Button className="rounded-xl h-11 px-5 shadow-lg shadow-primary/20">
+          <Button onClick={() => setShowAddModal(true)} className="rounded-xl h-11 px-5 shadow-lg shadow-primary/20">
             <UserPlus size={18} className="mr-2" />
             New Client
           </Button>
